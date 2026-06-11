@@ -1,0 +1,1910 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>臺大預選課程偷跑網</title>
+  <meta name="description" content="臺灣大學選課規劃工具，支援各院館課程篩選、衝堂偵測、週課表預覽">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    /* ============================================================
+   Tokens
+============================================================ */
+    :root {
+      --paper: #F6F1E6;
+      --paper-deep: #EEE6D4;
+      --ink: #2B281F;
+      --ink-soft: #84785F;
+      --line: #DBD0B8;
+      --seal: #AE3B33;
+      --seal-soft: rgba(174, 59, 51, .09);
+      --seal-line: rgba(174, 59, 51, .35);
+      --gold: #A8823D;
+      --gold-soft: rgba(168, 130, 61, .1);
+      --req-bg: #EDF5FF;
+      --req-line: #3B72AE;
+      --req-text: #1D4480;
+      --conflict: #BD8A2C;
+      --conflict-soft: rgba(189, 138, 44, .13);
+      --row-h: 34px;
+      /* timetable block colours — softer than --seal */
+      --tt-p1: #C95F58;
+      --tt-p1-soft: rgba(201, 95, 88, .28);
+      --tt-p1-border: rgba(201, 95, 88, .6);
+    }
+
+    /* ── Hide ALL scrollbars everywhere ── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    * {
+      scrollbar-width: none;
+    }
+
+    *::-webkit-scrollbar {
+      display: none;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Noto Sans TC', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ============================================================
+   Header
+============================================================ */
+    header.top {
+      flex: none;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 10px 28px;
+      border-bottom: 2px solid var(--ink);
+      background:
+        repeating-linear-gradient(135deg, var(--paper-deep) 0 2px, transparent 2px 14px),
+        var(--paper);
+    }
+
+    .seal-mark {
+      flex: none;
+      width: 44px;
+      height: 44px;
+      border: 3px solid var(--seal);
+      border-radius: 8px;
+      color: var(--seal);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 900;
+      font-size: 18px;
+      transform: rotate(-6deg);
+      letter-spacing: -2px;
+    }
+
+    header h1 {
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 900;
+      font-size: 22px;
+      letter-spacing: .06em;
+    }
+
+    header p {
+      font-size: 11px;
+      color: var(--ink-soft);
+      letter-spacing: .12em;
+      margin-top: 2px;
+    }
+
+    .meta {
+      margin-left: auto;
+      font-family: 'Spline Sans Mono', monospace;
+      font-size: 11.5px;
+      color: var(--ink-soft);
+      line-height: 1.7;
+      text-align: right;
+    }
+
+    .meta b {
+      color: var(--ink);
+    }
+
+    /* ============================================================
+   Loader banner
+============================================================ */
+    .loader {
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 8px 28px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      transition: opacity .4s, max-height .4s;
+      max-height: 60px;
+      overflow: hidden;
+    }
+
+    .loader.ok {
+      border-color: var(--seal-line);
+      color: var(--seal);
+    }
+
+    .loader.hide {
+      opacity: 0;
+      max-height: 0;
+      margin: 0 28px;
+      padding: 0 16px;
+      border-width: 0;
+    }
+
+    .loader label.btn {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      padding: 5px 14px;
+      border: 1.5px solid var(--ink);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+
+    .loader label.btn:hover {
+      background: var(--ink);
+      color: var(--paper);
+    }
+
+    /* ============================================================
+   Views
+============================================================ */
+    .view {
+      display: none;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .view.active {
+      display: grid;
+      overflow: hidden;
+      /* constrain children so they can scroll internally */
+      grid-template-rows: 1fr;
+      /* single row fills the flex height */
+    }
+
+    /* View A: large course area + narrow cart */
+    #viewSearch.active {
+      grid-template-columns: 1fr 320px;
+    }
+
+    /* View B: large timetable + cart */
+    #viewTimetable.active {
+      grid-template-columns: 1fr 360px;
+    }
+
+    /* ============================================================
+   Panel base
+============================================================ */
+    .panel {
+      overflow-y: auto;
+      /* scrollable but no bar */
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel:last-child {
+      border-right: none;
+    }
+
+    .panel-hdr {
+      flex: none;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--paper);
+      padding: 14px 20px 0;
+    }
+
+    .panel-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-title .num {
+      font-family: 'Spline Sans Mono', monospace;
+      color: var(--seal);
+      font-size: 11.5px;
+    }
+
+    .panel-title .badge {
+      margin-left: auto;
+      font-family: 'Spline Sans Mono', monospace;
+      font-size: 11px;
+      color: var(--ink-soft);
+      background: var(--paper-deep);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 1px 9px;
+    }
+
+    /* ============================================================
+   Filter bar — compact horizontal row
+============================================================ */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px 0 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    /* mobile-only — hidden on desktop */
+    .filter-toggle {
+      display: none;
+    }
+
+    .filter-bar input[type="text"] {
+      flex: 1;
+      min-width: 140px;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 13px;
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color .15s;
+    }
+
+    .filter-bar input[type="text"]:focus {
+      outline: none;
+      border-color: var(--seal-line);
+      box-shadow: 0 0 0 3px var(--seal-soft);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .chip {
+      font-size: 11.5px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+      background: #fff;
+      color: var(--ink-soft);
+      transition: all .12s;
+      white-space: nowrap;
+    }
+
+    .chip.active {
+      background: var(--seal);
+      border-color: var(--seal);
+      color: #fff;
+    }
+
+    /* type chips */
+    .tc {
+      font-size: 11.5px;
+      padding: 4px 11px;
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+      border: 1.5px solid;
+      transition: all .12s;
+      white-space: nowrap;
+    }
+
+    .tc-all {
+      border-color: var(--line);
+      background: #fff;
+      color: var(--ink-soft);
+    }
+
+    .tc-all.active {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--paper);
+    }
+
+    .tc-req {
+      border-color: var(--req-line);
+      background: #fff;
+      color: var(--req-text);
+    }
+
+    .tc-req.active {
+      background: var(--req-line);
+      color: #fff;
+    }
+
+    .tc-elec {
+      border-color: var(--gold);
+      background: #fff;
+      color: var(--gold);
+    }
+
+    .tc-elec.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #fff;
+    }
+
+    .tc-law {
+      border-color: var(--seal-line);
+      background: #fff;
+      color: var(--seal);
+    }
+
+    .tc-law.active {
+      background: var(--seal);
+      border-color: var(--seal);
+      color: #fff;
+    }
+
+    .tc-extra {
+      border-color: var(--line);
+      background: #fff;
+      color: var(--ink-soft);
+    }
+
+    .tc-extra.active {
+      background: var(--ink-soft);
+      border-color: var(--ink-soft);
+      color: #fff;
+    }
+
+    /* ============================================================
+   Course GRID (the big change!)
+============================================================ */
+    .course-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      padding: 14px 20px 100px;
+      align-content: start;
+    }
+
+    .course-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 13px;
+      background: #fff;
+      position: relative;
+      transition: border-color .15s, box-shadow .15s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .course-card:hover {
+      border-color: #bbb;
+      box-shadow: 0 2px 8px rgba(43, 40, 31, .07);
+    }
+
+    .course-card.in-cart {
+      border-color: var(--seal-line);
+      background: var(--seal-soft);
+    }
+
+    /* badges */
+    .badge-row {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 5px;
+    }
+
+    .req-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      background: var(--req-bg);
+      color: var(--req-text);
+      border: 1px solid var(--req-line);
+      border-radius: 3px;
+      padding: 1px 6px;
+    }
+
+    .elec-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      background: var(--gold-soft);
+      color: var(--gold);
+      border: 1px solid var(--gold);
+      border-radius: 3px;
+      padding: 1px 6px;
+    }
+
+    .other-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      background: rgba(132, 120, 95, .1);
+      color: var(--ink-soft);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 1px 6px;
+    }
+
+    .course-card .stamp {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid var(--seal);
+      color: var(--seal);
+      background: var(--paper);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 900;
+      font-size: 10px;
+      transform: rotate(-12deg);
+    }
+
+    .c-name {
+      font-weight: 700;
+      font-size: 13.5px;
+      line-height: 1.4;
+    }
+
+    .c-teacher {
+      font-size: 11.5px;
+      color: var(--ink-soft);
+      margin-top: 2px;
+    }
+
+    .c-sessions {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+    }
+
+    .c-session {
+      font-family: 'Spline Sans Mono', monospace;
+      font-size: 11px;
+      color: var(--ink);
+      background: var(--paper-deep);
+      border-radius: 3px;
+      padding: 3px 7px;
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .c-session span:last-child {
+      color: var(--ink-soft);
+      flex-shrink: 0;
+    }
+
+    .c-btn {
+      margin-top: 10px;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 7px 0;
+      border-radius: 5px;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: var(--paper);
+      cursor: pointer;
+      letter-spacing: .08em;
+      transition: all .15s;
+    }
+
+    .course-card.in-cart .c-btn {
+      background: #fff;
+      color: var(--seal);
+      border-color: var(--seal);
+    }
+
+    .empty-note {
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      border: 1px dashed var(--line);
+      border-radius: 6px;
+      padding: 20px;
+      text-align: center;
+      line-height: 1.8;
+      grid-column: 1 / -1;
+    }
+
+    /* ============================================================
+   Cart panel
+============================================================ */
+    .cart-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px 20px 100px;
+    }
+
+    .cart-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 13px;
+      background: #fff;
+      transition: border-color .15s, background .15s;
+    }
+
+    .cart-item.conflict {
+      border-color: var(--conflict);
+      background: var(--conflict-soft);
+    }
+
+    .ci-row1 {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .ci-name {
+      font-weight: 700;
+      font-size: 13.5px;
+    }
+
+    .ci-teacher {
+      font-size: 11px;
+      color: var(--ink-soft);
+      margin-top: 1px;
+    }
+
+    .ci-sess {
+      margin-top: 6px;
+      font-family: 'Spline Sans Mono', monospace;
+      font-size: 10.5px;
+      color: var(--ink-soft);
+      line-height: 1.6;
+    }
+
+    .ci-star {
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      color: var(--line);
+      transition: color .15s, transform .15s;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+    }
+
+    .ci-star:hover {
+      transform: scale(1.15);
+    }
+
+    .ci-star.active {
+      color: var(--seal);
+    }
+
+    .cart-item.compact .ci-star {
+      font-size: 14px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .ci-remove {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--seal);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .ci-conflict {
+      margin-top: 5px;
+      font-size: 10.5px;
+      color: var(--conflict);
+    }
+
+    /* ── Compact cart card ── */
+    .cart-item.compact {
+      padding: 7px 11px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .cart-item.compact .ci-compact-badge {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      border-radius: 3px;
+      padding: 2px 5px;
+    }
+
+    .cart-item.compact .ci-compact-name {
+      font-weight: 700;
+      font-size: 12.5px;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cart-item.compact .ci-compact-teacher {
+      font-size: 11px;
+      color: var(--ink-soft);
+      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 70px;
+    }
+
+    .cart-item.compact.conflict {
+      border-color: var(--conflict);
+    }
+
+    /* ── Toggle compact button ── */
+    .compact-toggle {
+      margin-left: auto;
+      font-size: 11px;
+      font-family: 'Spline Sans Mono', monospace;
+      padding: 3px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper-deep);
+      color: var(--ink-soft);
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+      letter-spacing: .04em;
+    }
+
+    .compact-toggle:hover {
+      border-color: var(--ink);
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    .compact-toggle.on {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+
+    /* ============================================================
+   Timetable view
+============================================================ */
+    .tt-panel {
+      overflow-y: auto;
+      /* scrollable, bar hidden globally */
+      overflow-x: auto;
+      padding: 16px 20px 80px;
+      background: var(--paper-deep);
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      min-height: 0;
+      /* allow flex child to shrink + scroll */
+    }
+
+    .tt-panel-hdr {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tt-panel-hdr .pt-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .18em;
+    }
+
+    .tt-legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11.5px;
+      color: var(--ink-soft);
+    }
+
+    .li {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+
+    .dot-p1 {
+      background: var(--seal);
+    }
+
+    .dot-p2 {
+      background: var(--conflict-soft);
+      border: 1px dashed var(--conflict);
+    }
+
+    .timetable {
+      display: grid;
+      grid-template-columns: 56px repeat(6, 1fr);
+      grid-template-rows: 30px repeat(15, var(--row-h));
+      border: 1px solid var(--ink);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+      width: 100%;
+      min-width: 580px;
+      flex-shrink: 0;
+      /* keep its natural 540px height so .tt-panel can actually scroll */
+    }
+
+    .tt-corner {
+      grid-column: 1;
+      grid-row: 1;
+      background: var(--ink);
+    }
+
+    .tt-day {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 700;
+      font-size: 13px;
+      background: var(--ink);
+      color: var(--paper);
+      border-left: 1px solid rgba(255, 255, 255, .12);
+    }
+
+    .tt-time {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Spline Sans Mono', monospace;
+      font-size: 9.5px;
+      color: var(--ink-soft);
+      border-top: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      background: var(--paper-deep);
+      line-height: 1.3;
+      padding: 1px;
+    }
+
+    .tt-time b {
+      font-size: 11px;
+      color: var(--ink);
+    }
+
+    .tt-col {
+      grid-row: 2 / span 15;
+      position: relative;
+      border-left: 1px solid var(--line);
+    }
+
+    .tt-col::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--row-h) - 1px),
+          var(--line) calc(var(--row-h) - 1px), var(--line) var(--row-h));
+    }
+
+    .block {
+      position: absolute;
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 11.5px;
+      line-height: 1.35;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+    }
+
+    .block .b-name {
+      font-weight: 700;
+    }
+
+    .block .b-meta {
+      font-size: 10px;
+      opacity: .85;
+      margin-top: 1px;
+    }
+
+    .block.p1 {
+      background: var(--tt-p1-soft);
+      color: #7A1F1A;
+      border: 1px solid var(--tt-p1-border);
+      z-index: 2;
+    }
+
+    .block.p2plus {
+      background: var(--conflict-soft);
+      border: 1px dashed var(--conflict);
+      color: var(--ink);
+      z-index: 1;
+    }
+
+    .block .pr-badge {
+      position: absolute;
+      top: 2px;
+      right: 3px;
+      font-family: 'Spline Sans Mono', monospace;
+      font-size: 9px;
+      font-weight: 700;
+      background: rgba(0, 0, 0, .18);
+      border-radius: 3px;
+      padding: 0 3px;
+    }
+
+    /* ── Simplified user bar (header clear button) ── */
+    .user-clear-btn {
+      margin-left: 16px;
+      font-size: 11.5px;
+      font-family: 'Noto Sans TC', sans-serif;
+      color: var(--ink-soft);
+      background: var(--paper-deep);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 5px 13px;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+      letter-spacing: .04em;
+    }
+
+    .user-clear-btn:hover {
+      border-color: var(--seal);
+      color: var(--seal);
+      background: var(--paper);
+    }
+
+    /* ============================================================
+   FAB
+============================================================ */
+    .fab {
+      position: fixed;
+      bottom: 26px;
+      right: 26px;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 12px 22px;
+      background: var(--seal);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      cursor: pointer;
+      box-shadow: 0 6px 24px rgba(174, 59, 51, .45);
+      transition: transform .18s, box-shadow .18s, background .2s;
+    }
+
+    .fab:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(174, 59, 51, .5);
+    }
+
+    .fab:active {
+      transform: translateY(0);
+    }
+
+    .fab.tt-mode {
+      background: var(--ink);
+      box-shadow: 0 6px 24px rgba(43, 40, 31, .4);
+    }
+
+    .fab-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .25);
+      font-size: 12px;
+      font-weight: 900;
+      padding: 0 4px;
+    }
+
+    /* ============================================================
+   Mobile Tab Bar
+============================================================ */
+    .mob-tabs {
+      display: none;
+    }
+
+    /* ============================================================
+   Mobile Responsive  ≤ 768px
+============================================================ */
+    @media (max-width: 768px) {
+
+      /* ── Header ── */
+      header.top {
+        padding: 8px 14px;
+        gap: 10px;
+      }
+
+      .seal-mark {
+        width: 34px;
+        height: 34px;
+        font-size: 14px;
+      }
+
+      header h1 {
+        font-size: 16px;
+      }
+
+      header p {
+        display: none;
+      }
+
+      .meta {
+        display: none;
+      }
+
+      .user-clear-btn {
+        font-size: 10.5px;
+        padding: 4px 9px;
+        margin-left: 0;
+      }
+
+      /* ── Loader ── */
+      .loader {
+        margin: 6px 12px;
+      }
+
+      /* ── Views: single column, no side-by-side ── */
+      #viewSearch.active,
+      #viewTimetable.active {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+      }
+
+      /* On mobile, only show the active panel within each view */
+      #viewSearch .panel,
+      #viewTimetable .panel,
+      #viewTimetable .tt-panel {
+        display: none;
+      }
+
+      #viewSearch .panel.mob-active,
+      #viewTimetable .panel.mob-active,
+      #viewTimetable .tt-panel.mob-active {
+        display: flex;
+      }
+
+      /* ── Course grid: 1 column on narrow screens ── */
+      .course-grid {
+        grid-template-columns: 1fr;
+        padding: 10px 12px 90px;
+        gap: 10px;
+      }
+
+      /* ── Cart list ── */
+      .cart-list {
+        padding: 10px 12px 90px;
+      }
+
+      /* ── Panel header ── */
+      .panel-hdr {
+        padding: 10px 14px 0;
+      }
+
+      /* ── Filter bar ─ collapsible on mobile ── */
+      .filter-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: auto;
+        font-size: 11px;
+        font-family: 'Spline Sans Mono', monospace;
+        padding: 3px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--paper-deep);
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: all .15s;
+        white-space: nowrap;
+      }
+
+      .filter-toggle.open {
+        border-color: var(--seal-line);
+        color: var(--seal);
+        background: var(--seal-soft);
+      }
+
+      .filter-bar {
+        /* collapsed by default on mobile */
+        max-height: 0;
+        overflow: hidden;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-bottom-width: 0;
+        transition: max-height .25s ease, padding .2s ease, border-bottom-width .2s;
+      }
+
+      .filter-bar.open {
+        max-height: 200px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        border-bottom-width: 1px;
+      }
+
+      /* ── Timetable panel ── */
+      .tt-panel {
+        padding: 12px 10px 90px;
+      }
+
+      .tt-legend {
+        display: none;
+      }
+
+      /* ── FAB: hidden on mobile (replaced by tab bar) ── */
+      .fab {
+        display: none;
+      }
+
+      /* ── Bottom Tab Bar ── */
+      .mob-tabs {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        background: var(--paper);
+        border-top: 1.5px solid var(--line);
+        height: 58px;
+      }
+
+      .mob-tab {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        font-family: 'Noto Sans TC', sans-serif;
+        font-size: 10.5px;
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: color .15s;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
+      .mob-tab .mob-tab-icon {
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .mob-tab.active {
+        color: var(--seal);
+      }
+
+      .mob-tab .mob-badge {
+        position: absolute;
+        top: 4px;
+        right: calc(50% - 18px);
+        background: var(--seal);
+        color: #fff;
+        font-size: 9px;
+        font-weight: 700;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        padding: 0 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .mob-tab {
+        position: relative;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══════════ Header ══════════ -->
+  <header class="top">
+    <div class="seal-mark">選</div>
+    <div>
+      <h1>臺大 預選課程偷跑網</h1>
+      <p>LexKo - NTU Course Planner（資料來源：教室課表）</p>
+    </div>
+    <div class="meta">
+      學期 <b id="metaSemester">—</b><br>
+      製作者 <b>Dusty K</b>
+    </div>
+    <button class="user-clear-btn" onclick="clearUserData()" title="清除所有預排課程">🗑 清除預排</button>
+  </header>
+
+  <!-- ══════════ Loader ══════════ -->
+  <div class="loader hide" id="loader">
+    <span>請選擇 <code>scraper.py</code> 產生的 <b>courses.json</b>：</span>
+    <label class="btn" for="fileInput">選擇 courses.json</label>
+    <input type="file" id="fileInput" accept="application/json" style="display:none">
+    <span id="loaderStatus"></span>
+  </div>
+
+  <!-- ══════════════════════════════════════
+     VIEW A — Search (grid) + Cart
+══════════════════════════════════════ -->
+  <div class="view active" id="viewSearch">
+
+    <!-- Left: full-width course grid -->
+    <div class="panel" id="searchPanel">
+      <div class="panel-hdr">
+        <div class="panel-title">
+          <span class="num">01</span> 課程查詢
+          <span class="badge" id="resultBadge">0 筆</span>
+          <button class="filter-toggle" id="filterToggle" onclick="toggleFilterBar()">🔍 篩選</button>
+        </div>
+        <!-- Compact single-row filter bar -->
+        <div class="filter-bar">
+          <!-- Row 1: source filter -->
+          <div class="chips">
+            <div class="tc tc-all active" id="tc-all" onclick="setTypeFilter('all')">全部</div>
+            <div class="tc tc-law" id="tc-law" onclick="setTypeFilter('law')">法律系</div>
+            <div class="tc tc-extra" id="tc-extra" onclick="setTypeFilter('extra')">其他院館</div>
+          </div>
+          <!-- Row 2: req/elec chips (hidden when extra selected) -->
+          <div class="chips" id="reqChips">
+            <div class="tc tc-req" id="tc-req" onclick="setReqFilter('all')">全部</div>
+            <div class="tc tc-req" id="tc-req-only" onclick="setReqFilter('req')">必修</div>
+            <div class="tc tc-elec" id="tc-elec" onclick="setReqFilter('elec')">選修</div>
+          </div>
+          <input type="text" id="keyword" placeholder="課名 / 教師 / 教室">
+          <div class="chips" id="buildingChips"></div>
+        </div>
+      </div>
+
+      <!-- !! Grid of cards !! -->
+      <div class="course-grid" id="courseGrid">
+        <div class="empty-note">請先載入 courses.json</div>
+      </div>
+    </div>
+
+    <!-- Right: cart -->
+    <div class="panel" id="cartPanelA">
+      <div class="panel-hdr">
+        <div class="panel-title">
+          <span class="num">02</span> 清單
+          <span class="badge" id="cartBadgeA">0 筆</span>
+          <button class="compact-toggle on" id="conflictToggleA" onclick="toggleConflict()" title="襲堂顯示">衝堂 ✗</button>
+          <button class="compact-toggle" id="compactToggleA" onclick="toggleCompact()">展開 ▴</button>
+        </div>
+      </div>
+      <div class="cart-list" id="cartListA">
+        <div class="empty-note">尚未加入任何課程。<br>從左側點擊「加入預排」。</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════
+     VIEW B — Timetable + Cart
+══════════════════════════════════════ -->
+  <div class="view" id="viewTimetable">
+
+    <!-- Timetable (full width) -->
+    <div class="tt-panel">
+      <div class="tt-panel-hdr">
+        <span class="pt-title num" style="font-family:'Spline Sans Mono',monospace;color:var(--seal);">週課表</span>
+        <div class="tt-legend">
+          <div class="li">
+            <div class="dot dot-p1"></div><span>主要課程（★）</span>
+          </div>
+          <div class="li">
+            <div class="dot dot-p2"></div><span>備選課程</span>
+          </div>
+        </div>
+        <span class="badge" id="ttBadge" style="margin-left:auto;">0 門</span>
+      </div>
+      <div class="timetable" id="timetable">
+        <div class="tt-corner"></div>
+      </div>
+    </div>
+
+    <!-- Cart -->
+    <div class="panel" id="cartPanelB">
+      <div class="panel-hdr">
+        <div class="panel-title">
+          <span class="num">清單</span>
+          <span class="badge" id="cartBadgeB">0 筆</span>
+          <button class="compact-toggle on" id="conflictToggleB" onclick="toggleConflict()" title="襲堂顯示">衝堂 ✗</button>
+          <button class="compact-toggle" id="compactToggleB" onclick="toggleCompact()">展開 ▴</button>
+        </div>
+      </div>
+      <div class="cart-list" id="cartListB">
+        <div class="empty-note">尚未加入任何課程。<br>按左下角按鈕切回選課。</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════ FAB ══════════ -->
+  <button class="fab" id="fab" onclick="toggleView()">
+    <span id="fabIcon">📅</span>
+    <span id="fabLabel">預排課表</span>
+    <span class="fab-count" id="fabCount">0</span>
+  </button>
+
+  <!-- ══════════ Mobile Tab Bar ══════════ -->
+  <nav class="mob-tabs" id="mobTabs">
+    <div class="mob-tab active" id="mobTabSearch" onclick="mobSwitchTab('search')">
+      <span class="mob-tab-icon">🔍</span>
+      <span>課程</span>
+    </div>
+    <div class="mob-tab" id="mobTabCart" onclick="mobSwitchTab('cart')">
+      <span class="mob-tab-icon">📋</span>
+      <span>清單</span>
+      <span class="mob-badge" id="mobCartBadge" style="display:none">0</span>
+    </div>
+    <div class="mob-tab" id="mobTabTt" onclick="mobSwitchTab('tt')">
+      <span class="mob-tab-icon">📅</span>
+      <span>課表</span>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════
+     JavaScript
+══════════════════════════════════════ -->
+  <script>
+    /* ────── Constants ────── */
+    const PERIOD_CODES = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "A", "B", "C", "D"];
+    const WEEKDAY_LABEL = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "日" };
+    let PERIOD_TIMES = {
+      "0": ["07:10", "08:00"], "1": ["08:10", "09:00"], "2": ["09:10", "10:00"],
+      "3": ["10:20", "11:10"], "4": ["11:20", "12:10"], "5": ["12:20", "13:10"],
+      "6": ["13:20", "14:10"], "7": ["14:20", "15:10"], "8": ["15:30", "16:20"],
+      "9": ["16:30", "17:20"], "10": ["17:30", "18:20"], "A": ["18:25", "19:15"],
+      "B": ["19:20", "20:10"], "C": ["20:15", "21:05"], "D": ["21:10", "22:00"]
+    };
+
+    /* 必修課程 — 114學年必修預定開課表 */
+    const REQUIRED_EXACT = new Set([
+      "憲法", "行政法", "行政救濟法", "國際公法",
+      "法律史", "法理學",
+      "民法總則", "民法債總一", "民法債總二", "民法債各", "民法物權", "民法身分法",
+      "刑法總則一", "刑法總則二", "刑法分則", "刑事訴訟法",
+      "保險法", "票據及支付工具法", "證券交易法", "勞動法", "公平交易法",
+    ]);
+    const REQUIRED_PREFIX = ["民事訴訟法", "商事法總論及公司法"];
+    function isRequired(name) {
+      if (REQUIRED_EXACT.has(name)) return true;
+      return REQUIRED_PREFIX.some(p => name.startsWith(p));
+    }
+
+    /* ────── State ────── */
+    let allCourses = [];
+    let groupedCourses = [];       // law courses
+    let extraGroupedCourses = [];  // non-law courses
+    let cart = [];
+    let activeBuildings = new Set();
+    let typeFilter = "all";   // 'all' | 'law' | 'extra'
+    let reqFilter = "all";   // 'all' | 'req' | 'elec'  (only applies when typeFilter != 'extra')
+    let currentView = "search";
+    let compactMode = true;
+    let showConflict = false;
+
+    /* ────── localStorage (anonymous, single device) ────── */
+    const LS_CART_KEY = 'ntulaw_cart';
+
+    function saveCart() {
+      localStorage.setItem(LS_CART_KEY, JSON.stringify(cart));
+    }
+    function loadCart() {
+      try {
+        cart = JSON.parse(localStorage.getItem(LS_CART_KEY) || '[]');
+        cart.forEach(item => {
+          if (item.starred === undefined) {
+            item.starred = (item.priority === 1);
+          }
+        });
+      }
+      catch (e) { cart = []; }
+    }
+    function clearUserData() {
+      if (!confirm('確定要清除所有預排課程嗎？')) return;
+      cart = [];
+      saveCart();
+      renderCourseList();
+      renderCartTo('cartListA', 'cartBadgeA');
+      if (currentView === 'timetable') { renderCartTo('cartListB', 'cartBadgeB'); renderGrid(); }
+      updateFAB();
+    }
+
+    // Load saved cart immediately
+    loadCart();
+
+    /* ────── View toggle (desktop FAB) ────── */
+    function toggleView() {
+      const toTT = currentView === "search";
+      currentView = toTT ? "timetable" : "search";
+      document.getElementById("viewSearch").classList.toggle("active", !toTT);
+      document.getElementById("viewTimetable").classList.toggle("active", toTT);
+      const fab = document.getElementById("fab");
+      fab.classList.toggle("tt-mode", toTT);
+      document.getElementById("fabIcon").textContent = toTT ? "←" : "📅";
+      document.getElementById("fabLabel").textContent = toTT ? "返回選課" : "預排課表";
+      if (toTT) { renderGrid(); renderCartTo("cartListB", "cartBadgeB"); }
+    }
+
+    /* ────── Mobile Tab switching ────── */
+    let mobActiveTab = 'search'; // 'search' | 'cart' | 'tt'
+
+    function mobSwitchTab(tab) {
+      if (!isMobile()) return;
+      mobActiveTab = tab;
+
+      // Update tab highlight
+      ['search', 'cart', 'tt'].forEach(t => {
+        const el = document.getElementById('mobTab' + (t === 'search' ? 'Search' : t === 'cart' ? 'Cart' : 'Tt'));
+        if (el) el.classList.toggle('active', t === tab);
+      });
+
+      // Show correct view
+      document.getElementById('viewSearch').classList.toggle('active', tab === 'search' || tab === 'cart');
+      document.getElementById('viewTimetable').classList.toggle('active', tab === 'tt');
+
+      // Within viewSearch: show search panel or cart panel
+      const searchPanel = document.getElementById('searchPanel');
+      const cartPanelA = document.getElementById('cartPanelA');
+      if (searchPanel) searchPanel.classList.toggle('mob-active', tab === 'search');
+      if (cartPanelA) cartPanelA.classList.toggle('mob-active', tab === 'cart');
+
+      // Within viewTimetable: show tt-panel
+      const ttPanel = document.querySelector('.tt-panel');
+      const cartPanelB = document.getElementById('cartPanelB');
+      if (ttPanel) ttPanel.classList.toggle('mob-active', tab === 'tt');
+      if (cartPanelB) cartPanelB.classList.toggle('mob-active', false);
+
+      // Update currentView for renderGrid etc.
+      currentView = tab === 'tt' ? 'timetable' : 'search';
+
+      if (tab === 'tt') { renderGrid(); renderCartTo('cartListB', 'cartBadgeB'); }
+      if (tab === 'cart') { renderCartTo('cartListA', 'cartBadgeA'); }
+    }
+
+    function isMobile() {
+      return window.matchMedia('(max-width: 768px)').matches;
+    }
+
+    /* Update mobile badge count */
+    function updateMobBadge() {
+      const badge = document.getElementById('mobCartBadge');
+      if (!badge) return;
+      badge.textContent = cart.length;
+      badge.style.display = cart.length > 0 ? 'flex' : 'none';
+    }
+
+    /* Toggle filter bar on mobile */
+    function toggleFilterBar() {
+      if (!isMobile()) return;
+      const bar = document.querySelector('.filter-bar');
+      const btn = document.getElementById('filterToggle');
+      if (!bar || !btn) return;
+      const isOpen = bar.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+      btn.textContent = isOpen ? '✕ 收起' : '🔍 篩選';
+    }
+
+    /* Init mobile tab state on load */
+    function initMobileTabs() {
+      if (!isMobile()) return;
+      // Set initial mob-active panels
+      const searchPanel = document.getElementById('searchPanel');
+      if (searchPanel) searchPanel.classList.add('mob-active');
+      updateMobBadge();
+    }
+
+    /* ────── Helpers ────── */
+    function buildingGroup(room) {
+      if (room.startsWith("科法")) return "科法所";
+      if (room.startsWith("霖研")) return "霖澤研究室";
+      if (room.startsWith("霖")) return "霖澤館";
+      if (room.startsWith("萬")) return "萬才館";
+      // non-law buildings
+      if (room.startsWith("共")) return "共同";
+      if (room.startsWith("普")) return "普通";
+      if (room.startsWith("新")) return "新生";
+      if (room.startsWith("綜")) return "綜合";
+      if (room.startsWith("博雅")) return "博雅";
+      if (room.startsWith("社")) return "社科院";
+      return "其他";
+    }
+    function periodIndex(code) { return PERIOD_CODES.indexOf(code); }
+    function sessionLabel(s) {
+      const noteStr = s.note ? ` [${s.note}]` : "";
+      return `(${WEEKDAY_LABEL[s.weekday]}) ${s.start_time}–${s.end_time}${noteStr} @${s.room}`;
+    }
+
+    /* ────── Load data ────── */
+    function loadData(json) {
+      if (json.period_times) PERIOD_TIMES = json.period_times;
+      allCourses = json.courses || [];
+      let semStr = json.semester || "—";
+      if (semStr && /^\d{4}$/.test(semStr)) {
+        semStr = semStr.slice(0, 3) + "-" + semStr.slice(3);
+      }
+      document.getElementById("metaSemester").textContent = semStr;
+
+      const map = new Map();
+      allCourses.forEach(c => {
+        const key = c.course + "｜" + c.teacher;
+        if (!map.has(key)) map.set(key, { course: c.course, teacher: c.teacher, sessions: [], required: isRequired(c.course) });
+        map.get(key).sessions.push({ weekday: c.weekday, periods: c.periods, start_time: c.start_time, end_time: c.end_time, room: c.room, note: c.note || "" });
+      });
+      groupedCourses = Array.from(map.values());
+
+      const loader = document.getElementById("loader");
+      loader.classList.add("ok");
+      document.getElementById("loaderStatus").textContent = " ✓ 已載入";
+      setTimeout(() => loader.classList.add("hide"), 2500);
+
+      buildTimetableSkeleton();
+      rebuildBuildingChips();
+      renderCourseList();
+      renderCartTo("cartListA", "cartBadgeA");
+      updateFAB();
+    }
+
+    /* Load extra (non-law) courses JSON — silently */
+    function mergeExtraCourses(json) {
+      const courses = json.courses || [];
+      const map = new Map();
+      courses.forEach(c => {
+        const key = c.course + "｜" + c.teacher;
+        if (!map.has(key)) map.set(key, {
+          course: c.course,
+          teacher: c.teacher,
+          sessions: [],
+          required: false,
+          isExtra: true,
+        });
+        map.get(key).sessions.push({
+          weekday: c.weekday, periods: c.periods,
+          start_time: c.start_time, end_time: c.end_time,
+          room: c.room, note: c.note || "",
+        });
+      });
+      extraGroupedCourses = Array.from(map.values());
+      rebuildBuildingChips();
+      renderCourseList();
+    }
+
+    /* ────── Source filter ────── */
+    function setTypeFilter(t) {
+      typeFilter = t;
+      ['all', 'law', 'extra'].forEach(id => {
+        const el = document.getElementById('tc-' + id);
+        if (el) el.classList.toggle('active', id === t);
+      });
+      // Show req/elec sub-chips only when not in extra-only mode
+      const reqChips = document.getElementById('reqChips');
+      if (reqChips) reqChips.style.display = (t === 'extra') ? 'none' : '';
+      activeBuildings.clear();
+      rebuildBuildingChips();
+      renderCourseList();
+    }
+
+    /* req/elec sub-filter (law courses only) */
+    function setReqFilter(r) {
+      reqFilter = r;
+      ['all', 'req', 'elec'].forEach(id => {
+        const el = document.getElementById('tc-req' + (id === 'all' ? '' : id === 'req' ? '-only' : ''));
+        // tc-req = all, tc-req-only = req, tc-elec = elec
+      });
+      const ids = { all: 'tc-req', req: 'tc-req-only', elec: 'tc-elec' };
+      Object.entries(ids).forEach(([k, domId]) => {
+        const el = document.getElementById(domId);
+        if (el) el.classList.toggle('active', k === r);
+      });
+      renderCourseList();
+    }
+
+    /* rebuild building chips based on current typeFilter */
+    function rebuildBuildingChips() {
+      const lawGroups = ['科法所', '霖澤研究室', '霖澤館', '萬才館', '其他'];
+      const extraGroups = ['共同', '普通', '新生', '綜合', '博雅', '社科院', '其他'];
+
+      let source = typeFilter === 'extra' ? extraGroupedCourses
+        : typeFilter === 'law' ? groupedCourses
+          : [...groupedCourses, ...extraGroupedCourses];
+
+      const groups = new Set(source.flatMap(c => c.sessions.map(s => buildingGroup(s.room))));
+      const chipWrap = document.getElementById('buildingChips');
+      chipWrap.innerHTML = '';
+      [...groups].sort().forEach(g => {
+        const el = document.createElement('div');
+        el.className = 'chip'; el.textContent = g;
+        el.onclick = () => {
+          el.classList.toggle('active');
+          activeBuildings.has(g) ? activeBuildings.delete(g) : activeBuildings.add(g);
+          renderCourseList();
+        };
+        chipWrap.appendChild(el);
+      });
+    }
+
+    /* ────── Render course grid ────── */
+    function renderCourseList() {
+      const kw = document.getElementById("keyword").value.trim().toLowerCase();
+      const grid = document.getElementById("courseGrid");
+      grid.innerHTML = "";
+
+      // Pick source based on typeFilter
+      let source;
+      if (typeFilter === 'extra') source = extraGroupedCourses;
+      else if (typeFilter === 'law') source = groupedCourses;
+      else source = [...groupedCourses, ...extraGroupedCourses];
+
+      const filtered = source.filter(c => {
+        if (typeFilter !== 'extra') {
+          if (reqFilter === 'req' && !c.required) return false;
+          if (reqFilter === 'elec' && c.required) return false;
+        }
+        if (activeBuildings.size > 0 && !c.sessions.some(s => activeBuildings.has(buildingGroup(s.room)))) return false;
+        if (kw) {
+          const hay = (c.course + " " + c.teacher + " " + c.sessions.map(s => s.room).join(" ")).toLowerCase();
+          if (!hay.includes(kw)) return false;
+        }
+        return true;
+      });
+
+      document.getElementById("resultBadge").textContent = filtered.length + " 筆";
+
+      if (!filtered.length) {
+        grid.innerHTML = '<div class="empty-note">沒有符合條件的課程。</div>';
+        return;
+      }
+
+      filtered.forEach(c => {
+        const key = c.course + "｜" + c.teacher;
+        const inCart = cart.some(x => x.key === key);
+        const card = document.createElement("div");
+        card.className = "course-card" + (inCart ? " in-cart" : "");
+        // Badge: extra courses get 'other-badge', law courses get req/elec
+        const badgeHtml = c.isExtra
+          ? '<span class="other-badge">其他</span>'
+          : c.required
+            ? '<span class="req-badge">必修</span>'
+            : '<span class="elec-badge">選修</span>';
+        card.innerHTML = `
+      ${inCart ? '<div class="stamp">選</div>' : ""}
+      <div class="badge-row">${badgeHtml}</div>
+      <div class="c-name">${c.course}</div>
+      <div class="c-teacher">${c.teacher || "（無教師資訊）"}</div>
+      <div class="c-sessions">
+        ${c.sessions.map(s => `
+          <div class="c-session">
+            <span>${WEEKDAY_LABEL[s.weekday]} ${s.start_time}–${s.end_time}${s.note ? ` <span style="color:var(--seal);font-weight:700;">(${s.note})</span>` : ""}</span>
+            <span>${s.room}</span>
+          </div>`).join("")}
+      </div>
+      <button class="c-btn">${inCart ? "移出預排" : "加入預排"}</button>
+    `;
+        card.querySelector(".c-btn").onclick = () => toggleCart(c);
+        grid.appendChild(card);
+      });
+    }
+
+    /* ────── Cart ────── */
+    function toggleCart(c) {
+      const key = c.course + "｜" + c.teacher;
+      const idx = cart.findIndex(x => x.key === key);
+      if (idx >= 0) { cart.splice(idx, 1); }
+      else cart.push({ key, course: c.course, teacher: c.teacher, sessions: c.sessions, starred: false, required: c.required });
+      saveCart();
+      renderCourseList();
+      renderCartTo("cartListA", "cartBadgeA");
+      if (currentView === "timetable") { renderCartTo("cartListB", "cartBadgeB"); renderGrid(); }
+      updateFAB();
+    }
+
+    function sessionsOverlap(a, b) {
+      return a.weekday === b.weekday && a.periods.some(p => b.periods.includes(p));
+    }
+    function findConflicts(item) {
+      const s = new Set();
+      cart.forEach(o => { if (o.key !== item.key && item.sessions.some(s1 => o.sessions.some(s2 => sessionsOverlap(s1, s2)))) s.add(o); });
+      return [...s];
+    }
+
+    function renderCartTo(listId, badgeId) {
+      const wrap = document.getElementById(listId);
+      const badge = document.getElementById(badgeId);
+      if (!wrap) return;
+      if (badge) badge.textContent = cart.length + " 筆";
+      if (badgeId === "ttBadge") badge.textContent = cart.length + " 門";
+      wrap.innerHTML = "";
+
+      const isCompact = compactMode;
+
+      if (!cart.length) {
+        wrap.innerHTML = listId === "cartListA"
+          ? '<div class="empty-note">尚未加入任何課程。<br>從左側點擊「加入預排」。</div>'
+          : '<div class="empty-note">尚未加入任何課程。<br>按左下角按鈕切回選課。</div>';
+        return;
+      }
+
+      cart.forEach(item => {
+        const conflicts = showConflict ? findConflicts(item) : [];
+        const div = document.createElement("div");
+
+        const starClass = item.starred ? "ci-star active" : "ci-star";
+        const starChar = item.starred ? "★" : "☆";
+        const starHtml = `<span class="${starClass}" title="標記為主要排課">${starChar}</span>`;
+
+        if (isCompact) {
+          div.className = "cart-item compact" + (conflicts.length ? " conflict" : "");
+          const typeCls = item.required ? "req-badge" : "elec-badge";
+          const typeText = item.required ? "必" : "選";
+          div.innerHTML = `
+        ${starHtml}
+        <span class="ci-compact-badge ${typeCls}">${typeText}</span>
+        <span class="ci-compact-name" title="${item.course}">${item.course}</span>
+        <span class="ci-compact-teacher" title="${item.teacher || ''}">${item.teacher || '—'}</span>
+        ${conflicts.length ? '<span style="font-size:11px;color:var(--conflict);flex-shrink:0;">⚠</span>' : ''}
+      `;
+        } else {
+          div.className = "cart-item" + (conflicts.length ? " conflict" : "");
+          const badgeHtml = item.required ? '<span class="req-badge">必修</span> ' : '<span class="elec-badge">選修</span> ';
+          div.innerHTML = `
+        <div class="ci-row1" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+          <div style="display:flex; align-items:flex-start; gap:8px;">
+            ${starHtml}
+            <div>
+              ${badgeHtml}
+              <div class="ci-name">${item.course}</div>
+              <div class="ci-teacher">${item.teacher || "（無教師資訊）"}</div>
+            </div>
+          </div>
+        </div>
+        <div class="ci-sess">${item.sessions.map(s => sessionLabel(s)).join("<br>")}</div>
+        ${conflicts.length ? `<div class="ci-conflict">⚠ 與「${conflicts.map(x => x.course).join("、")}」衝堂</div>` : ""}
+        <button class="ci-remove">移出預排</button>
+      `;
+          div.querySelector(".ci-remove").onclick = () => toggleCart(item);
+        }
+
+        div.querySelector(".ci-star").onclick = (e) => {
+          e.stopPropagation();
+          toggleStarByKey(item.key);
+        };
+        wrap.appendChild(div);
+      });
+    }
+
+    function toggleCompact() {
+      compactMode = !compactMode;
+      // Sync both buttons
+      ['compactToggleA', 'compactToggleB'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.textContent = compactMode ? '展開 ▴' : '縮起 ▾';
+        btn.classList.toggle('on', compactMode);
+      });
+      renderCartTo('cartListA', 'cartBadgeA');
+      if (currentView === 'timetable') renderCartTo('cartListB', 'cartBadgeB');
+    }
+
+    function toggleConflict() {
+      showConflict = !showConflict;
+      ['conflictToggleA', 'conflictToggleB'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.textContent = showConflict ? '衝堂 ✓' : '衝堂 ✗';
+        btn.classList.toggle('on', !showConflict); // 'on' style = dark = active-off
+      });
+      renderCartTo('cartListA', 'cartBadgeA');
+      if (currentView === 'timetable') { renderCartTo('cartListB', 'cartBadgeB'); renderGrid(); }
+    }
+
+    // Initialize compact button UI state on page load
+    function initCompactButtons() {
+      ['compactToggleA', 'compactToggleB'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.textContent = compactMode ? '展開 ▴' : '縮起 ▾';
+        btn.classList.toggle('on', compactMode);
+      });
+    }
+
+    function initConflictButtons() {
+      ['conflictToggleA', 'conflictToggleB'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.textContent = showConflict ? '衝堂 ✓' : '衝堂 ✗';
+        btn.classList.toggle('on', !showConflict);
+      });
+    }
+
+    function toggleStarByKey(key) {
+      const item = cart.find(x => x.key === key);
+      if (item) {
+        item.starred = !item.starred;
+        saveCart();
+        renderCartTo("cartListA", "cartBadgeA");
+        if (currentView === "timetable") {
+          renderCartTo("cartListB", "cartBadgeB");
+          renderGrid();
+        }
+      }
+    }
+
+    /* ────── FAB + mobile badge ────── */
+    function updateFAB() {
+      document.getElementById("fabCount").textContent = cart.length;
+      document.getElementById("ttBadge").textContent = cart.length + " 門";
+      updateMobBadge();
+    }
+
+    /* ────── Timetable skeleton ────── */
+    function buildTimetableSkeleton() {
+      const tt = document.getElementById("timetable");
+      tt.innerHTML = '<div class="tt-corner"></div>';
+      for (let d = 1; d <= 6; d++) {
+        const el = document.createElement("div");
+        el.className = "tt-day"; el.style.gridColumn = d + 1; el.style.gridRow = 1;
+        el.textContent = "週" + WEEKDAY_LABEL[d]; tt.appendChild(el);
+      }
+      PERIOD_CODES.forEach((code, i) => {
+        const el = document.createElement("div");
+        el.className = "tt-time"; el.style.gridColumn = 1; el.style.gridRow = i + 2;
+        const t = PERIOD_TIMES[code];
+        el.innerHTML = `<b>${code}</b>${t ? t[0] : ""}`; tt.appendChild(el);
+      });
+      for (let d = 1; d <= 6; d++) {
+        const col = document.createElement("div");
+        col.className = "tt-col"; col.dataset.day = d; col.style.gridColumn = d + 1;
+        tt.appendChild(col);
+      }
+    }
+
+    /* ────── Render timetable blocks ────── */
+    function renderGrid() {
+      document.querySelectorAll(".tt-col").forEach(col => col.querySelectorAll(".block").forEach(b => b.remove()));
+      const byDay = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+      cart.forEach(item => item.sessions.forEach(s => { if (s.weekday >= 1 && s.weekday <= 6) byDay[s.weekday].push({ item, s }); }));
+
+      Object.keys(byDay).forEach(dayStr => {
+        const day = +dayStr;
+        const col = document.querySelector(`.tt-col[data-day="${day}"]`);
+        const entries = byDay[day];
+        if (!entries.length || !col) return;
+
+        entries.sort((a, b) => periodIndex(a.s.periods[0]) - periodIndex(b.s.periods[0]));
+        const lanes = [];
+        entries.forEach(e => {
+          const si = periodIndex(e.s.periods[0]), ei = periodIndex(e.s.periods[e.s.periods.length - 1]);
+          let lane = lanes.findIndex(l => l < si);
+          if (lane === -1) { lane = lanes.length; lanes.push(ei); } else lanes[lane] = ei;
+          e.lane = lane;
+        });
+        const totalLanes = lanes.length;
+
+        entries.forEach(e => {
+          const si = periodIndex(e.s.periods[0]), ei = periodIndex(e.s.periods[e.s.periods.length - 1]);
+          const rowH = 34, top = si * rowH + 1, height = (ei - si + 1) * rowH - 2;
+          const w = 100 / totalLanes, left = e.lane * w;
+          const block = document.createElement("div");
+          block.className = "block " + (e.item.starred ? "p1" : "p2plus");
+          block.style.top = top + "px"; block.style.height = height + "px";
+          block.style.left = left + "%"; block.style.width = (w - 1) + "%";
+          block.innerHTML = `
+        <div class="b-name">${e.item.course}</div>
+        <div class="b-meta">${e.s.room}${e.s.note ? ` (${e.s.note})` : ""}</div>
+      `;
+          col.appendChild(block);
+        });
+      });
+    }
+
+    /* ────── File input & auto-load ────── */
+    document.getElementById("keyword").addEventListener("input", renderCourseList);
+    document.getElementById("fileInput").addEventListener("change", function (e) {
+      const file = e.target.files[0]; if (!file) return;
+      const r = new FileReader();
+      r.onload = ev => {
+        try { loadData(JSON.parse(ev.target.result)); }
+        catch (err) { document.getElementById("loaderStatus").textContent = " ✗ " + err.message; }
+      };
+      r.readAsText(file, "utf-8");
+    });
+
+    fetch("courses.json")
+      .then(r => { if (!r.ok) throw 0; return r.json(); })
+      .then(loadData)
+      .catch(() => {
+        setTimeout(() => {
+          const loader = document.getElementById('loader');
+          loader.classList.remove('hide');
+        }, 800);
+      });
+
+    // Silently load extra (non-law) courses — failure is OK
+    fetch("courses_extra.json")
+      .then(r => { if (!r.ok) throw 0; return r.json(); })
+      .then(mergeExtraCourses)
+      .catch(() => { });
+
+    buildTimetableSkeleton();
+    updateFAB();
+    initCompactButtons();
+    initConflictButtons();
+    initMobileTabs();
+    // Render cart from localStorage on page load
+    renderCourseList();
+    renderCartTo('cartListA', 'cartBadgeA');
+  </script>
+</body>
+
+</html>

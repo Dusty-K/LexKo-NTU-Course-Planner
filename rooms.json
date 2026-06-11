@@ -1,0 +1,150 @@
+{
+  "semester": "1151",
+  "building": "法律院",
+  "rooms": [
+    {
+      "room": "科法一",
+      "capacity": "45",
+      "location": "霖澤館5樓",
+      "type": "一般",
+      "equipment": "單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": "專用教室"
+    },
+    {
+      "room": "科法二",
+      "capacity": "45",
+      "location": "霖澤館5樓",
+      "type": "一般",
+      "equipment": "單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": "專用教室"
+    },
+    {
+      "room": "萬2101",
+      "capacity": "153",
+      "location": "萬才館1樓",
+      "type": "階梯",
+      "equipment": "無線麥克風、單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "萬2201",
+      "capacity": "181",
+      "location": "萬才館2樓",
+      "type": "階梯",
+      "equipment": "無線麥克風、單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "萬2311",
+      "capacity": "181",
+      "location": "萬才館3樓",
+      "type": "階梯",
+      "equipment": "無線麥克風、單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖1302",
+      "capacity": "58",
+      "location": "霖澤館3樓",
+      "type": "一般",
+      "equipment": "單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖1303",
+      "capacity": "78",
+      "location": "霖澤館3樓",
+      "type": "一般",
+      "equipment": "單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖1304",
+      "capacity": "78",
+      "location": "霖澤館3樓",
+      "type": "一般",
+      "equipment": "單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖1401",
+      "capacity": "140",
+      "location": "霖澤館4樓",
+      "type": "階梯",
+      "equipment": "無線麥克風、單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖1402",
+      "capacity": "58",
+      "location": "霖澤館4樓",
+      "type": "一般",
+      "equipment": "單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖1403",
+      "capacity": "78",
+      "location": "霖澤館4樓",
+      "type": "一般",
+      "equipment": "單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖1506",
+      "capacity": "78",
+      "location": "霖澤館5樓",
+      "type": "一般",
+      "equipment": "無線麥克風、單槍投影機、電動螢幕、空調、資訊講桌、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖研一1501",
+      "capacity": "36",
+      "location": "霖澤館5樓",
+      "type": "一般",
+      "equipment": "單槍投影機、電動螢幕、空調、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖研二1502",
+      "capacity": "28",
+      "location": "霖澤館5樓",
+      "type": "一般",
+      "equipment": "單槍投影機、電動螢幕、空調、有線麥克風",
+      "description": ""
+    },
+    {
+      "room": "霖研四1701",
+      "capacity": "36",
+      "location": "霖澤館7樓",
+      "type": "一般",
+      "equipment": "無線麥克風、單槍投影機、電動螢幕、空調",
+      "description": ""
+    },
+    {
+      "room": "霖研五1702",
+      "capacity": "28",
+      "location": "霖澤館7樓",
+      "type": "一般",
+      "equipment": "無線麥克風、單槍投影機、電動螢幕、空調",
+      "description": ""
+    },
+    {
+      "room": "霖研六1703",
+      "capacity": "31",
+      "location": "霖澤館7樓",
+      "type": "一般",
+      "equipment": "無線麥克風、單槍投影機、電動螢幕、空調",
+      "description": ""
+    },
+    {
+      "room": "霖研七1709",
+      "capacity": "19",
+      "location": "霖澤館7樓",
+      "type": "一般",
+      "equipment": "單槍投影機、空調、有線麥克風",
+      "description": ""
+    }
+  ]
+}
