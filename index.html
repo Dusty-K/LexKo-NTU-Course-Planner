@@ -1076,6 +1076,10 @@
       }
 
       .filter-bar {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
         /* collapsed by default on mobile */
         max-height: 0;
         overflow: hidden;
@@ -1088,7 +1092,8 @@
       .filter-bar.open {
         max-height: 600px;
         overflow-y: auto;
-        padding-bottom: 8px;
+        padding-top: 12px;
+        padding-bottom: 12px;
         border-bottom-width: 1px;
       }
 
